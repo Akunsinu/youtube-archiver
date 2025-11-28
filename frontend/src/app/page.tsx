@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Filter, SortAsc, Download } from 'lucide-react';
+import { SortAsc, Download } from 'lucide-react';
 import { VideoGrid } from '@/components/video/VideoGrid';
 import { videosAPI } from '@/lib/api';
 import type { Video } from '@/types';
 
-export default function HomePage() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
 
@@ -172,5 +172,13 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<VideoGrid videos={[]} loading={true} />}>
+      <HomeContent />
+    </Suspense>
   );
 }
