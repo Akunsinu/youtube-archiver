@@ -128,7 +128,7 @@ export default function SyncPage() {
     }
   };
 
-  const isSyncing = syncProgress && syncProgress.percent_complete > 0;
+  const isSyncing = !!(syncProgress && syncProgress.percent_complete > 0);
 
   return (
     <div className="max-w-4xl mx-auto">
