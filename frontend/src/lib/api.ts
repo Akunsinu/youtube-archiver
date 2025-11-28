@@ -9,7 +9,17 @@ import type {
   ErrorLog,
 } from '@/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Get API base URL - use same host as frontend but different port
+function getApiBase(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+  }
+  // In browser, use the same hostname with backend port
+  const host = window.location.hostname;
+  return `http://${host}:8081`;
+}
+
+const API_BASE = getApiBase();
 
 async function fetchAPI<T>(
   endpoint: string,

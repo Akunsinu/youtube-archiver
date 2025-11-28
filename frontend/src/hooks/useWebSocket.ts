@@ -3,7 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { WSMessage, WSSyncProgress, WSDownloadProgress } from '@/types';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+// Get WebSocket URL - use same host as frontend but different port
+function getWsUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'ws://localhost:8081';
+  }
+  const host = window.location.hostname;
+  return `ws://${host}:8081`;
+}
 
 interface UseWebSocketReturn {
   isConnected: boolean;
@@ -27,7 +34,8 @@ export function useWebSocket(): UseWebSocketReturn {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(`${WS_URL}/api/v1/ws`);
+      const wsUrl = getWsUrl();
+      const ws = new WebSocket(`${wsUrl}/api/v1/ws`);
 
       ws.onopen = () => {
         setIsConnected(true);
