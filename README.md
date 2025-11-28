@@ -46,8 +46,8 @@ A self-hosted Docker application for archiving YouTube channels, including video
    ```
 
 4. **Access the web interface**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
+   - Frontend: http://localhost:3080
+   - Backend API: http://localhost:8081
 
 5. **Configure your channel**:
    - Go to the Channel page
@@ -72,8 +72,8 @@ A self-hosted Docker application for archiving YouTube channels, including video
    - `VIDEO_STORAGE_PATH`: /mnt/user/appdata/youtube-archiver/storage
 
 3. Map ports:
-   - 3000 (frontend)
-   - 8000 (backend)
+   - 3080 (frontend)
+   - 8081 (backend)
 
 ## Configuration
 
