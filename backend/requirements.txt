@@ -14,7 +14,7 @@ pydantic==2.5.3
 pydantic-settings==2.1.0
 
 # YouTube and downloads
-yt-dlp==2024.1.23
+yt-dlp>=2024.11.0
 google-api-python-client==2.115.0
 
 # Background tasks and scheduling
