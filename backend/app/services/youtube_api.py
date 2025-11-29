@@ -12,13 +12,23 @@ logger = logging.getLogger(__name__)
 
 class YouTubeAPIService:
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or settings.youtube_api_key
+        self._api_key = api_key or settings.youtube_api_key
         self._youtube = None
 
     @property
+    def api_key(self):
+        return self._api_key
+
+    @api_key.setter
+    def api_key(self, value: str):
+        if value != self._api_key:
+            self._api_key = value
+            self._youtube = None  # Reset client to force rebuild with new key
+
+    @property
     def youtube(self):
-        if self._youtube is None and self.api_key:
-            self._youtube = build("youtube", "v3", developerKey=self.api_key)
+        if self._youtube is None and self._api_key:
+            self._youtube = build("youtube", "v3", developerKey=self._api_key)
         return self._youtube
 
     def _run_sync(self, func):

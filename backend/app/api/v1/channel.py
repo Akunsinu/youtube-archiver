@@ -34,15 +34,20 @@ async def configure_channel(
     # Validate API key and channel
     youtube_api.api_key = config.youtube_api_key
 
-    # Try to get channel info
-    channel_info = await youtube_api.get_channel_info(config.youtube_channel_id)
+    try:
+        # Try to get channel info
+        channel_info = await youtube_api.get_channel_info(config.youtube_channel_id)
 
-    if not channel_info:
-        # Try as username/handle
-        channel_info = await youtube_api.get_channel_by_username(config.youtube_channel_id)
+        if not channel_info:
+            # Try as username/handle
+            channel_info = await youtube_api.get_channel_by_username(config.youtube_channel_id)
 
-    if not channel_info:
-        raise HTTPException(status_code=400, detail="Could not find channel")
+        if not channel_info:
+            raise HTTPException(status_code=400, detail="Could not find channel. Check the channel ID or handle.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"YouTube API error: {str(e)}")
 
     # Check if channel already exists
     result = await db.execute(
