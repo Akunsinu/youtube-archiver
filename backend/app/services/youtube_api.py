@@ -71,7 +71,15 @@ class YouTubeAPIService:
             }
         except HttpError as e:
             logger.error(f"YouTube API error fetching channel: {e}")
-            raise
+            # Extract meaningful error message
+            error_msg = str(e)
+            if "accessNotConfigured" in error_msg or "has not been used" in error_msg:
+                raise ValueError("YouTube Data API v3 is not enabled. Please enable it in Google Cloud Console.")
+            elif "API key not valid" in error_msg:
+                raise ValueError("Invalid YouTube API key. Please check your API key.")
+            elif "quotaExceeded" in error_msg:
+                raise ValueError("YouTube API quota exceeded. Please try again later.")
+            raise ValueError(f"YouTube API error: {error_msg}")
 
     async def get_channel_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Fetch channel information by username or handle"""
@@ -101,7 +109,14 @@ class YouTubeAPIService:
             return await self.get_channel_info(item["id"])
         except HttpError as e:
             logger.error(f"YouTube API error fetching channel by username: {e}")
-            raise
+            error_msg = str(e)
+            if "accessNotConfigured" in error_msg or "has not been used" in error_msg:
+                raise ValueError("YouTube Data API v3 is not enabled. Please enable it in Google Cloud Console.")
+            elif "API key not valid" in error_msg:
+                raise ValueError("Invalid YouTube API key. Please check your API key.")
+            elif "quotaExceeded" in error_msg:
+                raise ValueError("YouTube API quota exceeded. Please try again later.")
+            raise ValueError(f"YouTube API error: {error_msg}")
 
     async def get_channel_videos(
         self,
