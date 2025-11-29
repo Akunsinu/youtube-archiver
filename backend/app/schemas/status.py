@@ -77,3 +77,30 @@ class WSQueueUpdate(BaseModel):
     queue_length: int
     downloading: int
     current_download: Optional[str] = None
+
+
+class DownloadQueueItemResponse(BaseModel):
+    id: int
+    video_id: int
+    video_title: str
+    video_youtube_id: str
+    status: str
+    priority: int
+    progress: Optional[float] = None
+    download_speed: Optional[str] = None
+    eta: Optional[str] = None
+    error_message: Optional[str] = None
+    retry_count: int = 0
+    created_at: datetime
+    started_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DownloadQueueResponse(BaseModel):
+    items: List[DownloadQueueItemResponse]
+    total: int
+    downloading: int
+    queued: int
+    failed: int
