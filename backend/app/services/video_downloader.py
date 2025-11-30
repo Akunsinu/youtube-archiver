@@ -20,6 +20,7 @@ class VideoDownloader:
         self.max_quality = max_quality.replace("p", "")
         self.progress_callback: Optional[Callable] = None
         self.current_video_id: Optional[str] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def _progress_hook(self, d: Dict[str, Any]):
         """yt-dlp progress callback"""
@@ -40,20 +41,22 @@ class VideoDownloader:
                     progress_data['downloaded_bytes'] / progress_data['total_bytes']
                 ) * 100
 
-            if self.progress_callback:
-                asyncio.get_event_loop().call_soon_threadsafe(
-                    lambda: asyncio.create_task(self.progress_callback(progress_data))
+            if self.progress_callback and self._loop:
+                self._loop.call_soon_threadsafe(
+                    lambda pd=progress_data: asyncio.run_coroutine_threadsafe(
+                        self.progress_callback(pd), self._loop
+                    )
                 )
 
         elif d['status'] == 'finished':
-            if self.progress_callback:
-                asyncio.get_event_loop().call_soon_threadsafe(
-                    lambda: asyncio.create_task(
+            if self.progress_callback and self._loop:
+                self._loop.call_soon_threadsafe(
+                    lambda: asyncio.run_coroutine_threadsafe(
                         self.progress_callback({
                             'status': 'processing',
                             'video_id': self.current_video_id,
                             'progress': 100,
-                        })
+                        }), self._loop
                     )
                 )
 
@@ -65,6 +68,7 @@ class VideoDownloader:
         """Download a single video by YouTube video ID"""
         self.progress_callback = progress_callback
         self.current_video_id = video_id
+        self._loop = asyncio.get_running_loop()
 
         output_dir = self.storage_path / video_id
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -96,8 +100,7 @@ class VideoDownloader:
         url = f"https://www.youtube.com/watch?v={video_id}"
 
         try:
-            loop = asyncio.get_event_loop()
-            info = await loop.run_in_executor(
+            info = await self._loop.run_in_executor(
                 None,
                 lambda: self._download_sync(url, ydl_opts)
             )
@@ -202,7 +205,7 @@ class VideoDownloader:
         url = f"https://www.youtube.com/watch?v={video_id}"
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             info = await loop.run_in_executor(
                 None,
                 lambda: self._extract_info_sync(url, ydl_opts)
