@@ -31,10 +31,10 @@ class YouTubeAPIService:
             self._youtube = build("youtube", "v3", developerKey=self._api_key)
         return self._youtube
 
-    def _run_sync(self, func):
+    async def _run_sync(self, func):
         """Run synchronous API call in executor"""
-        loop = asyncio.get_event_loop()
-        return loop.run_in_executor(None, func)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func)
 
     async def get_channel_info(self, channel_id: str) -> Optional[Dict[str, Any]]:
         """Fetch channel information by channel ID"""
