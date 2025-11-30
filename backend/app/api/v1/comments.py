@@ -51,6 +51,26 @@ async def get_video_comments(
     result = await db.execute(query)
     comments = result.scalars().all()
 
+    # Helper function to convert comment to dict without the SQLAlchemy replies relationship
+    def comment_to_dict(c, include_replies=None):
+        return {
+            "id": c.id,
+            "youtube_comment_id": c.youtube_comment_id,
+            "video_id": c.video_id,
+            "parent_comment_id": c.parent_comment_id,
+            "author_name": c.author_name,
+            "author_channel_id": c.author_channel_id,
+            "author_profile_image_url": c.author_profile_image_url,
+            "text_original": c.text_original,
+            "text_display": c.text_display,
+            "like_count": c.like_count,
+            "reply_count": c.reply_count,
+            "published_at": c.published_at,
+            "is_top_level": c.is_top_level,
+            "created_at": c.created_at,
+            "replies": include_replies or []
+        }
+
     # Load replies for each comment
     comment_responses = []
     for comment in comments:
@@ -62,28 +82,11 @@ async def get_video_comments(
         )
         replies = replies_result.scalars().all()
 
-        # Build replies list first
-        reply_responses = [CommentResponse.model_validate(r) for r in replies]
+        # Build replies list (replies don't have nested replies)
+        reply_responses = [CommentResponse(**comment_to_dict(r)) for r in replies]
 
         # Create comment response with replies included
-        comment_data = {
-            "id": comment.id,
-            "youtube_comment_id": comment.youtube_comment_id,
-            "video_id": comment.video_id,
-            "parent_comment_id": comment.parent_comment_id,
-            "author_name": comment.author_name,
-            "author_channel_id": comment.author_channel_id,
-            "author_profile_image_url": comment.author_profile_image_url,
-            "text_original": comment.text_original,
-            "text_display": comment.text_display,
-            "like_count": comment.like_count,
-            "reply_count": comment.reply_count,
-            "published_at": comment.published_at,
-            "is_top_level": comment.is_top_level,
-            "created_at": comment.created_at,
-            "replies": reply_responses
-        }
-        comment_responses.append(CommentResponse(**comment_data))
+        comment_responses.append(CommentResponse(**comment_to_dict(comment, reply_responses)))
 
     total_pages = (total + per_page - 1) // per_page
 
@@ -127,10 +130,30 @@ async def get_comment_replies(
     result = await db.execute(query)
     replies = result.scalars().all()
 
+    # Helper function to convert comment to dict
+    def reply_to_dict(r):
+        return {
+            "id": r.id,
+            "youtube_comment_id": r.youtube_comment_id,
+            "video_id": r.video_id,
+            "parent_comment_id": r.parent_comment_id,
+            "author_name": r.author_name,
+            "author_channel_id": r.author_channel_id,
+            "author_profile_image_url": r.author_profile_image_url,
+            "text_original": r.text_original,
+            "text_display": r.text_display,
+            "like_count": r.like_count,
+            "reply_count": r.reply_count,
+            "published_at": r.published_at,
+            "is_top_level": r.is_top_level,
+            "created_at": r.created_at,
+            "replies": []
+        }
+
     total_pages = (total + per_page - 1) // per_page
 
     return CommentListResponse(
-        comments=[CommentResponse.model_validate(r) for r in replies],
+        comments=[CommentResponse(**reply_to_dict(r)) for r in replies],
         total=total,
         page=page,
         per_page=per_page,
