@@ -62,9 +62,28 @@ async def get_video_comments(
         )
         replies = replies_result.scalars().all()
 
-        comment_dict = CommentResponse.model_validate(comment)
-        comment_dict.replies = [CommentResponse.model_validate(r) for r in replies]
-        comment_responses.append(comment_dict)
+        # Build replies list first
+        reply_responses = [CommentResponse.model_validate(r) for r in replies]
+
+        # Create comment response with replies included
+        comment_data = {
+            "id": comment.id,
+            "youtube_comment_id": comment.youtube_comment_id,
+            "video_id": comment.video_id,
+            "parent_comment_id": comment.parent_comment_id,
+            "author_name": comment.author_name,
+            "author_channel_id": comment.author_channel_id,
+            "author_profile_image_url": comment.author_profile_image_url,
+            "text_original": comment.text_original,
+            "text_display": comment.text_display,
+            "like_count": comment.like_count,
+            "reply_count": comment.reply_count,
+            "published_at": comment.published_at,
+            "is_top_level": comment.is_top_level,
+            "created_at": comment.created_at,
+            "replies": reply_responses
+        }
+        comment_responses.append(CommentResponse(**comment_data))
 
     total_pages = (total + per_page - 1) // per_page
 
