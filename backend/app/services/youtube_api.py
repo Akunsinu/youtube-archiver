@@ -354,8 +354,9 @@ class YouTubeAPIService:
         return hours * 3600 + minutes * 60 + seconds
 
     def get_time_filter_date(self, time_filter: str) -> Optional[datetime]:
-        """Convert time filter string to datetime"""
-        now = datetime.utcnow()
+        """Convert time filter string to datetime (timezone-aware UTC)"""
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         if time_filter == "week":
             return now - timedelta(days=7)
         elif time_filter == "month":
