@@ -18,6 +18,7 @@ router = APIRouter()
 async def list_videos(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    channel_id: Optional[int] = Query(None, description="Filter by channel ID"),
     search: Optional[str] = None,
     sort_by: str = Query("upload_date", regex="^(upload_date|title|view_count|duration)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
@@ -28,6 +29,10 @@ async def list_videos(
 ):
     """List videos with filtering and pagination"""
     query = select(Video)
+
+    # Filter by channel if specified
+    if channel_id is not None:
+        query = query.where(Video.channel_id == channel_id)
 
     # Apply filters
     if search:

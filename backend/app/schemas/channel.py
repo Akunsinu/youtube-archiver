@@ -41,3 +41,8 @@ class ChannelResponse(ChannelBase):
 class ChannelConfig(BaseModel):
     youtube_channel_id: str
     youtube_api_key: str
+
+
+class ChannelListResponse(BaseModel):
+    channels: list[ChannelResponse]
+    total: int

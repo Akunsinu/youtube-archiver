@@ -23,6 +23,7 @@ class SyncJob(Base):
     job_type = Column(String(50), nullable=False)  # 'full', 'new_only', 'metadata', 'comments'
     status = Column(String(20), default="pending", index=True)  # 'pending', 'running', 'completed', 'failed', 'cancelled'
     time_filter = Column(String(20))  # 'week', 'month', 'year', 'all'
+    channel_id = Column(Integer, ForeignKey("channels.id", ondelete="CASCADE"), index=True)  # Which channel to sync
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
     total_items = Column(Integer, default=0)

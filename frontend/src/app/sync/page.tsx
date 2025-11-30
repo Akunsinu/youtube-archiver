@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import {
   Play,
@@ -13,19 +14,24 @@ import {
   AlertCircle,
   Settings,
 } from 'lucide-react';
-import { syncAPI } from '@/lib/api';
+import { syncAPI, channelAPI } from '@/lib/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { SyncConfig, SyncJob } from '@/types';
+import type { SyncConfig, SyncJob, Channel } from '@/types';
 
-export default function SyncPage() {
+function SyncContent() {
+  const searchParams = useSearchParams();
+  const preselectedChannel = searchParams.get('channel');
+
   const { syncProgress, isConnected } = useWebSocket();
 
   const [config, setConfig] = useState<SyncConfig | null>(null);
   const [history, setHistory] = useState<SyncJob[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Sync controls
+  const [selectedChannel, setSelectedChannel] = useState<number | ''>('');
   const [syncType, setSyncType] = useState('new_only');
   const [timeFilter, setTimeFilter] = useState('week');
   const [starting, setStarting] = useState(false);
@@ -46,15 +52,27 @@ export default function SyncPage() {
     loadData();
   }, []);
 
+  // Set preselected channel from URL
+  useEffect(() => {
+    if (preselectedChannel && channels.length > 0) {
+      const channelId = parseInt(preselectedChannel, 10);
+      if (channels.some((c) => c.id === channelId)) {
+        setSelectedChannel(channelId);
+      }
+    }
+  }, [preselectedChannel, channels]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [configData, historyData] = await Promise.all([
+      const [configData, historyData, channelsData] = await Promise.all([
         syncAPI.getConfig(),
         syncAPI.getHistory({ per_page: 10 }),
+        channelAPI.list(),
       ]);
       setConfig(configData);
       setHistory(historyData.jobs);
+      setChannels(channelsData.channels);
 
       // Initialize config form
       setConfigForm({
@@ -64,6 +82,11 @@ export default function SyncPage() {
         max_video_quality: configData.max_video_quality,
         sync_comments: configData.sync_comments,
       });
+
+      // Auto-select first channel if only one
+      if (channelsData.channels.length === 1) {
+        setSelectedChannel(channelsData.channels[0].id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load sync data');
     }
@@ -71,11 +94,16 @@ export default function SyncPage() {
   };
 
   const handleStartSync = async () => {
+    if (!selectedChannel) {
+      setError('Please select a channel to sync');
+      return;
+    }
+
     setStarting(true);
     setError(null);
 
     try {
-      await syncAPI.start(syncType, timeFilter);
+      await syncAPI.start(syncType, selectedChannel, timeFilter);
       loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start sync');
@@ -182,46 +210,77 @@ export default function SyncPage() {
       <div className="bg-youtube-gray rounded-xl p-6 mb-6">
         <h2 className="text-lg font-bold mb-4">Manual Sync</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Sync Type</label>
-            <select
-              value={syncType}
-              onChange={(e) => setSyncType(e.target.value)}
-              disabled={isSyncing}
-              className="w-full bg-youtube-dark border border-gray-700 rounded px-4 py-2"
+        {channels.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-400 mb-4">No channels configured yet.</p>
+            <a
+              href="/channels"
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-medium"
             >
-              <option value="new_only">New Videos Only</option>
-              <option value="full">Full Sync</option>
-              <option value="metadata">Metadata Only</option>
-              <option value="comments">Comments Only</option>
-            </select>
+              Add a Channel
+            </a>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Channel</label>
+                <select
+                  value={selectedChannel}
+                  onChange={(e) => setSelectedChannel(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  disabled={isSyncing}
+                  className="w-full bg-youtube-dark border border-gray-700 rounded px-4 py-2"
+                >
+                  <option value="">Select a channel...</option>
+                  {channels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Time Filter</label>
-            <select
-              value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value)}
-              disabled={isSyncing}
-              className="w-full bg-youtube-dark border border-gray-700 rounded px-4 py-2"
+              <div>
+                <label className="block text-sm font-medium mb-2">Sync Type</label>
+                <select
+                  value={syncType}
+                  onChange={(e) => setSyncType(e.target.value)}
+                  disabled={isSyncing}
+                  className="w-full bg-youtube-dark border border-gray-700 rounded px-4 py-2"
+                >
+                  <option value="new_only">New Videos Only</option>
+                  <option value="full">Full Sync</option>
+                  <option value="metadata">Metadata Only</option>
+                  <option value="comments">Comments Only</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Time Filter</label>
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  disabled={isSyncing}
+                  className="w-full bg-youtube-dark border border-gray-700 rounded px-4 py-2"
+                >
+                  <option value="week">Past Week</option>
+                  <option value="month">Past Month</option>
+                  <option value="year">Past Year</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={handleStartSync}
+              disabled={starting || isSyncing || !selectedChannel}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 px-6 py-2 rounded font-medium"
             >
-              <option value="week">Past Week</option>
-              <option value="month">Past Month</option>
-              <option value="year">Past Year</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
-        </div>
-
-        <button
-          onClick={handleStartSync}
-          disabled={starting || isSyncing}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 px-6 py-2 rounded font-medium"
-        >
-          <Play className="w-4 h-4" />
-          {starting ? 'Starting...' : 'Start Sync'}
-        </button>
+              <Play className="w-4 h-4" />
+              {starting ? 'Starting...' : 'Start Sync'}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Auto-sync configuration */}
@@ -404,5 +463,13 @@ export default function SyncPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SyncPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto animate-pulse"><div className="h-8 bg-youtube-gray rounded w-48 mb-6" /></div>}>
+      <SyncContent />
+    </Suspense>
   );
 }

@@ -42,15 +42,40 @@ async function fetchAPI<T>(
   return response.json();
 }
 
-// Channel API
+// Channel API (multi-channel support)
 export const channelAPI = {
-  get: () => fetchAPI<Channel>('/channel'),
+  // List all channels
+  list: () => fetchAPI<{ channels: Channel[]; total: number }>('/channels'),
 
+  // Get a specific channel by ID
+  get: (id: number) => fetchAPI<Channel>(`/channels/${id}`),
+
+  // Add a new channel
+  create: (youtube_channel_id: string, youtube_api_key: string) =>
+    fetchAPI<Channel>('/channels', {
+      method: 'POST',
+      body: JSON.stringify({ youtube_channel_id, youtube_api_key }),
+    }),
+
+  // Delete a channel
+  delete: (id: number, deleteVideos: boolean = false) =>
+    fetchAPI<{ status: string; channel_id: number; videos_deleted: number }>(
+      `/channels/${id}?delete_videos=${deleteVideos}`,
+      { method: 'DELETE' }
+    ),
+
+  // Legacy: configure channel (calls create)
   configure: (youtube_channel_id: string, youtube_api_key: string) =>
     fetchAPI<Channel>('/channel/config', {
       method: 'PUT',
       body: JSON.stringify({ youtube_channel_id, youtube_api_key }),
     }),
+
+  // Get banner URL for a channel
+  getBannerUrl: (id: number) => `${API_BASE}/api/v1/channels/${id}/banner`,
+
+  // Get avatar URL for a channel
+  getAvatarUrl: (id: number) => `${API_BASE}/api/v1/channels/${id}/avatar`,
 };
 
 // Videos API
@@ -58,6 +83,7 @@ export const videosAPI = {
   list: (params?: {
     page?: number;
     per_page?: number;
+    channel_id?: number;
     search?: string;
     sort_by?: string;
     sort_order?: string;
@@ -66,6 +92,7 @@ export const videosAPI = {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.per_page) searchParams.set('per_page', params.per_page.toString());
+    if (params?.channel_id) searchParams.set('channel_id', params.channel_id.toString());
     if (params?.search) searchParams.set('search', params.search);
     if (params?.sort_by) searchParams.set('sort_by', params.sort_by);
     if (params?.sort_order) searchParams.set('sort_order', params.sort_order);
@@ -109,10 +136,10 @@ export const commentsAPI = {
 
 // Sync API
 export const syncAPI = {
-  start: (job_type: string, time_filter?: string) =>
+  start: (job_type: string, channel_id: number, time_filter?: string) =>
     fetchAPI<SyncJob>('/sync/start', {
       method: 'POST',
-      body: JSON.stringify({ job_type, time_filter }),
+      body: JSON.stringify({ job_type, channel_id, time_filter }),
     }),
 
   stop: () =>

@@ -30,6 +30,7 @@ class SyncProgress:
     job_id: Optional[int] = None
     status: TaskStatus = TaskStatus.IDLE
     job_type: Optional[str] = None
+    channel_id: Optional[int] = None
     total_items: int = 0
     processed_items: int = 0
     current_item: Optional[str] = None
@@ -114,10 +115,11 @@ class TaskManager:
             )
             job = result.scalar_one_or_none()
 
-            if job:
+            if job and job.channel_id:
                 await self.start_sync(
                     job_type=job.job_type,
                     time_filter=job.time_filter,
+                    channel_id=job.channel_id,
                     resume_job_id=job_id
                 )
 
@@ -125,11 +127,15 @@ class TaskManager:
         self,
         job_type: str,
         time_filter: str = "all",
+        channel_id: Optional[int] = None,
         resume_job_id: Optional[int] = None
     ) -> int:
-        """Start a new sync job"""
+        """Start a new sync job for a specific channel"""
         if self.current_task and not self.current_task.done():
             raise Exception("A sync is already in progress")
+
+        if not channel_id and not resume_job_id:
+            raise Exception("channel_id is required")
 
         self.cancel_requested = False
 
@@ -141,10 +147,19 @@ class TaskManager:
                 job = result.scalar_one_or_none()
                 if not job:
                     raise Exception(f"Job {resume_job_id} not found")
+                channel_id = job.channel_id
             else:
+                # Verify channel exists
+                channel_result = await db.execute(
+                    select(Channel).where(Channel.id == channel_id)
+                )
+                if not channel_result.scalar_one_or_none():
+                    raise Exception(f"Channel {channel_id} not found")
+
                 job = SyncJob(
                     job_type=job_type,
                     time_filter=time_filter,
+                    channel_id=channel_id,
                     status="running",
                     started_at=datetime.utcnow()
                 )
@@ -157,11 +172,12 @@ class TaskManager:
         self.sync_progress = SyncProgress(
             job_id=job_id,
             status=TaskStatus.SYNCING,
-            job_type=job_type
+            job_type=job_type,
+            channel_id=channel_id
         )
 
         self.current_task = asyncio.create_task(
-            self._run_sync(job_id, job_type, time_filter)
+            self._run_sync(job_id, job_type, time_filter, channel_id)
         )
 
         return job_id
@@ -188,16 +204,18 @@ class TaskManager:
 
             self.sync_progress = SyncProgress()
 
-    async def _run_sync(self, job_id: int, job_type: str, time_filter: str):
+    async def _run_sync(self, job_id: int, job_type: str, time_filter: str, channel_id: int):
         """Main sync orchestration"""
         try:
             async with AsyncSessionLocal() as db:
-                # Get channel
-                result = await db.execute(select(Channel).limit(1))
+                # Get the specific channel
+                result = await db.execute(
+                    select(Channel).where(Channel.id == channel_id)
+                )
                 channel = result.scalar_one_or_none()
 
                 if not channel:
-                    raise Exception("No channel configured")
+                    raise Exception(f"Channel {channel_id} not found")
 
                 # Update channel info first
                 await self._sync_channel_info(db, channel)
@@ -567,6 +585,7 @@ class TaskManager:
             "status": self.sync_progress.status.value,
             "job_id": self.sync_progress.job_id,
             "job_type": self.sync_progress.job_type,
+            "channel_id": self.sync_progress.channel_id,
             "total_items": self.sync_progress.total_items,
             "processed_items": self.sync_progress.processed_items,
             "current_item": self.sync_progress.current_item,

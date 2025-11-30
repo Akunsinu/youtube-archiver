@@ -27,6 +27,7 @@ class SyncConfigResponse(SyncConfigBase):
 class SyncJobCreate(BaseModel):
     job_type: str  # 'full', 'new_only', 'metadata', 'comments'
     time_filter: Optional[str] = "all"  # 'week', 'month', 'year', 'all'
+    channel_id: int  # Required: which channel to sync
 
 
 class SyncJobResponse(BaseModel):
@@ -34,6 +35,7 @@ class SyncJobResponse(BaseModel):
     job_type: str
     status: str
     time_filter: Optional[str] = None
+    channel_id: Optional[int] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     total_items: int = 0

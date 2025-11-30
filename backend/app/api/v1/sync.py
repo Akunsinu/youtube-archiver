@@ -20,11 +20,12 @@ async def start_sync(
     job: SyncJobCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Start a new sync job"""
+    """Start a new sync job for a specific channel"""
     try:
         job_id = await task_manager.start_sync(
             job_type=job.job_type,
-            time_filter=job.time_filter or "all"
+            time_filter=job.time_filter or "all",
+            channel_id=job.channel_id
         )
 
         result = await db.execute(
